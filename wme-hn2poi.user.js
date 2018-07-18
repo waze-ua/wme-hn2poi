@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME HN2POI
 // @version      2018.07.19.001
-// @description  Converts HouseNumbers to POI and Residential Point
+// @description  Converts HouseNumbers to POI
 // @author       turbopirate
 // @include      /^https:\/\/(www|beta)\.waze\.com(\/\w{2,3}|\/\w{2,3}-\w{2,3}|\/\w{2,3}-\w{2,3}-\w{2,3})?\/editor\b/
 // @grant        none
