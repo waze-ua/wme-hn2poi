@@ -5,7 +5,7 @@ House Numbers (HN) editing is annoying, so this sript makes it easy to convert H
 Select segment(s) with HNs and use convert/delete buttons in side pane.
 
 ### Note
-Waze doesn't allow to mix HN edits with any other, so take make changes in following order:
+Waze doesn't allow to mix HN edits with any other, so make changes in following order:
 
  1. Convert to POI
  2. Save
