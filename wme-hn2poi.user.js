@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         WME HN2POI
-// @version      2018.07.19.001
+// @version      2018.07.19.002
 // @description  Converts HouseNumbers to POI
 // @author       turbopirate
 // @include      /^https:\/\/(www|beta)\.waze\.com(\/\w{2,3}|\/\w{2,3}-\w{2,3}|\/\w{2,3}-\w{2,3}-\w{2,3})?\/editor\b/
@@ -28,7 +28,7 @@
       makePoiButtonText: "Номера домов в POI",
       delHNButtonText: "Удалить номера домов"
     },
-    ua: {
+    uk: {
       makePoiButtonText: "Номера будинків у POI",
       delHNButtonText: "Видалити номера будинків"
     }
@@ -65,13 +65,17 @@
     
     if (!fts || fts.length === 0 || fts[0].model.type !== "segment" || !fts.some(f => f.model.attributes.hasHNs)) return;
 
+    const pane = newEl('div', {className: 'form-group'});
     const makePoiBtn = newEl('button', {className: 'waze-btn waze-btn-white action-button', style: 'display: inline-block', innerText: txt('makePoiButtonText')});
-    q('#edit-panel .more-actions').appendChild(makePoiBtn);
-    makePoiBtn.addEventListener('click', makePoi);
-
     const delHNbtn = newEl('button', {className: 'waze-btn waze-btn-white action-button', style: 'display: inline-block', innerText: txt('delHNButtonText')});
-    q('#edit-panel .more-actions').appendChild(delHNbtn);
+
+    makePoiBtn.addEventListener('click', makePoi);
     delHNbtn.addEventListener('click', delHN);
+    
+    pane.appendChild(makePoiBtn);
+    pane.appendChild(delHNbtn);
+
+    q('#edit-panel .tab-pane').insertBefore(pane, q('#edit-panel .tab-pane .more-actions'));
   }
   
   function makePoi() {
