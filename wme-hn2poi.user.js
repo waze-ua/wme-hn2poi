@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         WME HN2POI
-// @version      2018.07.20.001
+// @version      2018.07.20.002
 // @description  Converts HouseNumbers to POI
 // @author       turbopirate
 // @include      /^https:\/\/(www|beta)\.waze\.com(\/\w{2,3}|\/\w{2,3}-\w{2,3}|\/\w{2,3}-\w{2,3}-\w{2,3})?\/editor\b/
@@ -72,7 +72,7 @@
       `<div><input type="checkbox" id="hn2poi-no-duplicates" /><label for="hn2poi-no-duplicates">${txt('noDuplicatesLabel')}</label></div>`,
     ].join('');
     
-    const tabPane = newEl('div', {id: 'sidepanel-hn2poi', class: 'tab-pane', innerHTML: tabPaneContent})
+    const tabPane = newEl('div', {id: 'sidepanel-hn2poi', className: 'tab-pane', innerHTML: tabPaneContent});
     
     q('.nav-tabs').appendChild(newEl('li', {innerHTML: '<a href="#sidepanel-hn2poi" data-toggle="tab">HN2POI</a>'}));
     q('#user-info .tab-content').appendChild(tabPane);
