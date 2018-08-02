@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         WME HN2POI
-// @version      2018.08.01.001
+// @version      2018.08.02.001
 // @description  Converts HouseNumbers to POI
 // @author       turbopirate
 // @include      /^https:\/\/(www|beta)\.waze\.com(\/\w{2,3}|\/\w{2,3}-\w{2,3}|\/\w{2,3}-\w{2,3}-\w{2,3})?\/editor\b/
@@ -162,7 +162,7 @@
     // NOTE:
     // Get HNs info only for array of segments, otherwise Waze api
     // for some reason doesn't responds properly
-    W.model.houseNumbers.get(segs).then(i => {
+    W.model.houseNumbers.getAsync(segs).then(i => {
       i.forEach(hn => {
         hn.numbers.forEach(num => {
           
@@ -174,7 +174,7 @@
           poi.attributes.houseNumber = num.number;
           poi.attributes.categories.push('OTHER');
 
-          const addr = W.model.segments.get(hn.id).getAddress().attributes;
+          const addr = W.model.segments.getObjectById(hn.id).getAddress().attributes;
 
           const newAddr = {
             countryID: addr.country.id,
@@ -227,7 +227,7 @@
       segs.push(f.model.attributes.id);
     });
 
-    W.model.houseNumbers.get(segs).then(i => {
+    W.model.houseNumbers.getAsync(segs).then(i => {
       i.forEach(hn =>
         hn.numbers.forEach(num =>
           W.model.actionManager.add(new HouseNumberAction.DeleteHouseNumber(num.parent, num))
