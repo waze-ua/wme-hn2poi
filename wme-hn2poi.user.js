@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         WME HN2POI
-// @version      2018.08.02.001
+// @version      2018.08.09.001
 // @description  Converts HouseNumbers to POI
 // @author       turbopirate
 // @include      /^https:\/\/(www|beta)\.waze\.com(\/\w{2,3}|\/\w{2,3}-\w{2,3}|\/\w{2,3}-\w{2,3}-\w{2,3})?\/editor\b/
@@ -61,10 +61,15 @@
     init();
   };
 
-  function init() {
-    sm = W.selectionManager;
-    sm.events.register("selectionchanged", null, onSelect);
+  function initUI() {
+    const tabs = q('.nav-tabs'), tabContent = q('#user-info .tab-content');
     
+    if (!tabs || !tabContent) {
+      log('Waze UI not ready...');
+      setTimeout(initUI, 500);
+      return;
+    }
+
     const tabPaneContent = [
       '<p>WME HN2POI</p>',
       `<div><input type="checkbox" id="hn2poi-add-residential" /><label for="hn2poi-add-residential">${txt('addResidentialLabel')}</label></div>`,
@@ -73,8 +78,8 @@
     
     const tabPane = newEl('div', {id: 'sidepanel-hn2poi', className: 'tab-pane', innerHTML: tabPaneContent});
     
-    q('.nav-tabs').appendChild(newEl('li', {innerHTML: '<a href="#sidepanel-hn2poi" data-toggle="tab">HN2POI</a>'}));
-    q('#user-info .tab-content').appendChild(tabPane);
+    tabs.appendChild(newEl('li', {innerHTML: '<a href="#sidepanel-hn2poi" data-toggle="tab">HN2POI</a>'}));
+    tabContent.appendChild(tabPane);
     
     const s = localStorage['hn2poi'];
     settings = s ? JSON.parse(s) : { addResidential: false, noDuplicates: true };
@@ -86,7 +91,14 @@
     addResidentialInput.addEventListener('change', updateSettings);
     noDuplicatesInput.checked = settings.noDuplicates;
     noDuplicatesInput.addEventListener('change', updateSettings);
-    
+
+    log('UI initialized...');
+  }
+  
+  function init() {
+    sm = W.selectionManager;
+    sm.events.register("selectionchanged", null, onSelect);
+
     const scriptName = 'hn2poi';
 
     RegisterKeyboardShortcut(scriptName, 'HN2POI', 'hn-to-poi', txt('makePoiButtonText'), makePOI, '-1');
@@ -96,6 +108,8 @@
     window.addEventListener("beforeunload", function() {
         SaveKeyboardShortcuts(scriptName);
     }, false);
+    
+    initUI();
   }
 
   function updateSettings() {
