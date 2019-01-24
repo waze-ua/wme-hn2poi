@@ -1,19 +1,17 @@
 // ==UserScript==
-// @name         WME HN2POI
+// @name         WME HN2POI (Fork by woolenkitten)
 // @version      2018.08.09.001
 // @description  Converts HouseNumbers to POI
-// @author       turbopirate
+// @author       turbopirate (Fork by woolenkitten)
 // @include      /^https:\/\/(www|beta)\.waze\.com(\/\w{2,3}|\/\w{2,3}-\w{2,3}|\/\w{2,3}-\w{2,3}-\w{2,3})?\/editor\b/
 // @grant        none
-// @namespace https://greasyfork.org/users/166361
 // ==/UserScript==
 
 (function() {
-  
   function log(m) { console.log('%cWME HN2POI:%c ' + m, 'color: darkcyan; font-weight: bold', 'color: dimgray; font-weight: normal'); }
   function warn(m) { console.warn('WME HN2POI: ' + m); }
   function err(m) { console.error('WME HN2POI: ' + m); }
-  
+
   const d = window.document;
   const q = d.querySelector.bind(d);
   const qa = d.querySelectorAll.bind(d);
@@ -63,7 +61,7 @@
 
   function initUI() {
     const tabs = q('.nav-tabs'), tabContent = q('#user-info .tab-content');
-    
+
     if (!tabs || !tabContent) {
       log('Waze UI not ready...');
       setTimeout(initUI, 500);
@@ -75,18 +73,18 @@
       `<div><input type="checkbox" id="hn2poi-add-residential" /><label for="hn2poi-add-residential">${txt('addResidentialLabel')}</label></div>`,
       `<div><input type="checkbox" id="hn2poi-no-duplicates" /><label for="hn2poi-no-duplicates">${txt('noDuplicatesLabel')}</label></div>`,
     ].join('');
-    
+
     const tabPane = newEl('div', {id: 'sidepanel-hn2poi', className: 'tab-pane', innerHTML: tabPaneContent});
-    
+
     tabs.appendChild(newEl('li', {innerHTML: '<a href="#sidepanel-hn2poi" data-toggle="tab">HN2POI</a>'}));
     tabContent.appendChild(tabPane);
-    
+
     const s = localStorage['hn2poi'];
     settings = s ? JSON.parse(s) : { addResidential: false, noDuplicates: true };
 
     const addResidentialInput = q('#hn2poi-add-residential');
     const noDuplicatesInput = q('#hn2poi-no-duplicates');
-    
+
     addResidentialInput.checked = settings.addResidential;
     addResidentialInput.addEventListener('change', updateSettings);
     noDuplicatesInput.checked = settings.noDuplicates;
@@ -94,10 +92,11 @@
 
     log('UI initialized...');
   }
-  
+
   function init() {
     sm = W.selectionManager;
     sm.events.register("selectionchanged", null, onSelect);
+    W.editingMediator.on('change:editingHouseNumbers', onEditingHN);
 
     const scriptName = 'hn2poi';
 
@@ -108,7 +107,7 @@
     window.addEventListener("beforeunload", function() {
         SaveKeyboardShortcuts(scriptName);
     }, false);
-    
+
     initUI();
   }
 
@@ -117,25 +116,27 @@
     settings.noDuplicates = q('#hn2poi-no-duplicates').checked;
     localStorage['hn2poi'] = JSON.stringify(settings);
   }
-  
+
   function onSelect() {
     const fts = sm.getSelectedFeatures();
-    
+
     if (!fts || fts.length === 0 || fts[0].model.type !== "segment" || !fts.some(f => f.model.attributes.hasHNs)) return;
 
     const pane = newEl('div', {className: 'form-group'});
     const makePoiBtn = newEl('button', {className: 'waze-btn waze-btn-white action-button', style: 'display: inline-block', innerText: txt('makePoiButtonText')});
-    const delHNbtn = newEl('button', {className: 'waze-btn waze-btn-white action-button', style: 'display: inline-block', innerText: txt('delHNButtonText')});
-
     makePoiBtn.addEventListener('click', makePOI);
-    delHNbtn.addEventListener('click', delHN);
-    
     pane.appendChild(makePoiBtn);
-    pane.appendChild(delHNbtn);
-
     q('#edit-panel .tab-pane').insertBefore(pane, q('#edit-panel .tab-pane .more-actions'));
   }
-  
+
+  function onEditingHN() {
+    const delHNbtn = newEl('div', {className: 'toolbar-button', style: 'float: left', innerText: txt('delHNButtonText')});
+    delHNbtn.addEventListener('click', delHN);
+    setTimeout(() => {
+      $('#edit-buttons').find('.add-house-number').after(delHNbtn);
+    }, 500)
+  }
+
   function hasDuplicates(poi, addr) {
     const venues = W.model.venues.objects;
     for (let k in venues)
@@ -154,85 +155,87 @@
       }
     return false;
   }
-  
+
   function makePOI() {
     const fts = sm.getSelectedFeatures();
-    
     if (!fts || fts.length === 0 || fts[0].model.type !== "segment" || !fts.some(f => f.model.attributes.hasHNs)) return;
 
-    const Landmark = require('Waze/Feature/Vector/Landmark');
-    const AddLandmark = require('Waze/Action/AddLandmark');
-    const HouseNumberAction = require('Waze/Action/HouseNumber');
-    const UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
-    const segs = [];
-
     // collect all segments ids with HN
+    const segs = [];
     fts.forEach(f => {
       if (!f.model.attributes.hasHNs)
         return;
       segs.push(f.model.attributes.id);
     });
-    
-    // NOTE:
-    // Get HNs info only for array of segments, otherwise Waze api
-    // for some reason doesn't responds properly
-    W.model.houseNumbers.getAsync(segs).then(i => {
-      i.forEach(hn => {
-        hn.numbers.forEach(num => {
-          
-          let addPOI = true;
 
-          const poi = new Landmark();
-          poi.geometry = num.geometry.clone();
-          poi.attributes.name = num.number;
-          poi.attributes.houseNumber = num.number;
-          poi.attributes.categories.push('OTHER');
-
-          const addr = W.model.segments.getObjectById(hn.id).getAddress().attributes;
-
-          const newAddr = {
-            countryID: addr.country.id,
-            stateID: addr.state.id,
-            cityName: addr.city.attributes.name,
-            emptyCity: !1,
-            streetName: addr.street.name,
-            streetEmpty: !1,
-          };
-
-          if (settings.noDuplicates && hasDuplicates(poi, addr))
-            addPOI = false;
-          
-          if (addPOI) {
-            W.model.actionManager.add(new AddLandmark(poi));
-            W.model.actionManager.add(new UpdateFeatureAddress(poi, newAddr));
-          }
-          
-          if (!settings.addResidential)
-            return; // no residential required
-          
-          const res = new Landmark();
-          res.geometry = num.geometry.clone();
-          res.geometry.x += 10;
-          res.attributes.residential = true;
-          res.attributes.houseNumber = num.number;
-
-          if (settings.noDuplicates && hasDuplicates(res, addr))
-            return;          
-          
-          W.model.actionManager.add(new AddLandmark(res));
-          W.model.actionManager.add(new UpdateFeatureAddress(res, newAddr));
-
-        });
-      });
+    fetch(`https://www.waze.com/row-Descartes/app/HouseNumbers?ids=${segs.join(',')}`)
+    .then(response => response.json())
+    .then(json => {
+      json.segmentHouseNumbers.objects.forEach(makePOIForHN);
     });
+  }
+
+  function makePOIForHN(hn) {
+    const Landmark = require('Waze/Feature/Vector/Landmark');
+    const AddLandmark = require('Waze/Action/AddLandmark');
+    const UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
+
+    let addPOI = true;
+
+    let [x, y] = hn.geometry.coordinates;
+    let poiGeometry = OpenLayers.Projection.transform(
+      new OpenLayers.Geometry.Point(x, y),
+      'EPSG:4326',
+      'EPSG:900913'
+    );
+
+    const poi = new Landmark();
+    poi.geometry = poiGeometry;
+    poi.attributes.name = hn.number;
+    poi.attributes.houseNumber = hn.number;
+    poi.attributes.categories.push('OTHER');
+
+    const addr = W.model.segments.getObjectById(hn.segID).getAddress().attributes;
+
+    const newAddr = {
+      countryID: addr.country.id,
+      stateID: addr.state.id,
+      cityName: addr.city.attributes.name,
+      emptyCity: !1,
+      streetName: addr.street.name,
+      streetEmpty: !1,
+    };
+
+    if (settings.noDuplicates && hasDuplicates(poi, addr))
+      addPOI = false;
+
+    if (addPOI) {
+      W.model.actionManager.add(new AddLandmark(poi));
+      W.model.actionManager.add(new UpdateFeatureAddress(poi, newAddr));
+    }
+
+    if (!settings.addResidential)
+      return; // no residential required
+
+    const res = new Landmark();
+    res.geometry = poiGeometry.clone();
+    res.geometry.x += 5;
+    res.attributes.residential = true;
+    res.attributes.houseNumber = hn.number;
+
+    if (settings.noDuplicates && hasDuplicates(res, addr))
+      return;
+
+    W.model.actionManager.add(new AddLandmark(res));
+    W.model.actionManager.add(new UpdateFeatureAddress(res, newAddr));
   }
 
   function delHN() {
     const fts = sm.getSelectedFeatures();
-    
+
     if (!fts || fts.length === 0 || fts[0].model.type !== "segment" || !fts.some(f => f.model.attributes.hasHNs)) return;
 
-    const HouseNumberAction = require('Waze/Action/HouseNumber');
+    const DeleteHouseNumberAction = require('Waze/Actions/DeleteHouseNumber');
     const segs = [];
 
     fts.forEach(f => {
@@ -241,12 +244,10 @@
       segs.push(f.model.attributes.id);
     });
 
-    W.model.houseNumbers.getAsync(segs).then(i => {
-      i.forEach(hn =>
-        hn.numbers.forEach(num =>
-          W.model.actionManager.add(new HouseNumberAction.DeleteHouseNumber(num.parent, num))
-        )
-      );
+    segs.forEach(segID => {
+      W.model.segmentHouseNumbers.getHouseNumbersBySegmentId(segID).forEach(hn => {
+        W.model.actionManager.add(new DeleteHouseNumberAction(hn));
+      });
     });
   }
 
@@ -357,7 +358,7 @@ window.addEventListener("beforeunload", function() {
 //saved shortcuts to console
 //JSON.parse(localStorage['WMEAwesomeKBS']);
 
-*/  
+*/
 
   wait();
 })();
