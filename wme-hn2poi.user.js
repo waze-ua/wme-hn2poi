@@ -237,6 +237,7 @@
 
     const DeleteHouseNumberAction = require('Waze/Actions/DeleteHouseNumber');
     const segs = [];
+    const houseNumbers = W.model.segmentHouseNumbers.getObjectArray();
 
     fts.forEach(f => {
       if (!f.model.attributes.hasHNs)
@@ -245,8 +246,10 @@
     });
 
     segs.forEach(segID => {
-      W.model.segmentHouseNumbers.getHouseNumbersBySegmentId(segID).forEach(hn => {
-        W.model.actionManager.add(new DeleteHouseNumberAction(hn));
+      houseNumbers.forEach(hn => {
+        if (hn.getSegmentId() == segID) {
+          W.model.actionManager.add(new DeleteHouseNumberAction(hn));
+        }
       });
     });
   }
