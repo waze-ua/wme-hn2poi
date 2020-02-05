@@ -157,6 +157,8 @@
   }
 
   function makePOI() {
+    selectEntireStreet();
+
     const fts = sm.getSelectedFeatures();
     if (!fts || fts.length === 0 || fts[0].model.type !== "segment" || !fts.some(f => f.model.attributes.hasHNs)) return;
 
@@ -231,6 +233,8 @@
   }
 
   function delHN() {
+    selectEntireStreet();
+
     const fts = sm.getSelectedFeatures();
 
     if (!fts || fts.length === 0 || fts[0].model.type !== "segment" || !fts.some(f => f.model.attributes.hasHNs)) return;
@@ -252,6 +256,17 @@
         }
       });
     });
+  }
+
+  function selectEntireStreet() {
+    let selectedFeature = sm.getSelectedFeatures()[0];
+    if (selectedFeature) {
+      let featureStreetId = selectedFeature.model.attributes.primaryStreetID;
+      let sameStreetSegments = W.model.segments.getByAttributes({ primaryStreetID: featureStreetId });
+
+      W.selectionManager.unselectAll();
+      W.selectionManager.setSelectedModels(sameStreetSegments);
+    }
   }
 
   //setup keyboard shortcut's header and add a keyboard shortcuts
