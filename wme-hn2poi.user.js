@@ -196,6 +196,8 @@
     poi.attributes.name = hn.number;
     poi.attributes.houseNumber = hn.number;
     poi.attributes.categories.push('OTHER');
+    poi.attributes.lockRank = getPointLockRank();
+    addEntryPoint(poi);
 
     const addr = W.model.segments.getObjectById(hn.segID).getAddress().attributes;
 
@@ -224,6 +226,8 @@
     res.geometry.x += 5;
     res.attributes.residential = true;
     res.attributes.houseNumber = hn.number;
+    res.attributes.lockRank = getPointLockRank();
+    addEntryPoint(res);
 
     if (settings.noDuplicates && hasDuplicates(res, addr))
       return;
@@ -256,6 +260,20 @@
         }
       });
     });
+  }
+
+  function addEntryPoint(newPoint) {
+    entryPoint = new NavigationPoint(newPoint.geometry.clone());
+    newPoint.attributes.entryExitPoints.push(entryPoint);
+  }
+
+  function getPointLockRank() {
+    const userRank = W.loginManager.user.rank;
+    if (userRank >= 1) {
+        return 1;
+    } else {
+        return 0;
+    }
   }
 
   function selectEntireStreet() {
@@ -378,5 +396,6 @@ window.addEventListener("beforeunload", function() {
 
 */
 
+  var _createClass=function(){function a(b,c){for(var f,d=0;d<c.length;d++)f=c[d],f.enumerable=f.enumerable||!1,f.configurable=!0,"value"in f&&(f.writable=!0),Object.defineProperty(b,f.key,f)}return function(b,c,d){return c&&a(b.prototype,c),d&&a(b,d),b}}();function _classCallCheck(a,b){if(!(a instanceof b))throw new TypeError("Cannot call a class as a function")}var NavigationPoint=function(){function a(b){_classCallCheck(this,a),this._point=b.clone(),this._entry=!0,this._exit=!0,this._isPrimary=!0,this._name=""}return _createClass(a,[{key:"with",value:function _with(){var b=0<arguments.length&&void 0!==arguments[0]?arguments[0]:{};return null==b.point&&(b.point=this.toJSON().point),new this.constructor((this.toJSON().point,b.point))}},{key:"getPoint",value:function getPoint(){return this._point.clone()}},{key:"getEntry",value:function getEntry(){return this._entry}},{key:"getExit",value:function getExit(){return this._exit}},{key:"getName",value:function getName(){return this._name}},{key:"isPrimary",value:function isPrimary(){return this._isPrimary}},{key:"toJSON",value:function toJSON(){return{point:this._point,entry:this._entry,exit:this._exit,primary:this._isPrimary,name:this._name}}},{key:"clone",value:function clone(){return this.with()}}]),a}();
   wait();
 })();
