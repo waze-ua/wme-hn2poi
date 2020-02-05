@@ -1,19 +1,18 @@
 // ==UserScript==
 // @name         WME HN2POI
-// @version      2018.08.09.001
+// @version      2020.02.05.01
 // @description  Converts HouseNumbers to POI
-// @author       turbopirate
+// @author       turbopirate, Andrei Pavlenko
 // @include      /^https:\/\/(www|beta)\.waze\.com(\/\w{2,3}|\/\w{2,3}-\w{2,3}|\/\w{2,3}-\w{2,3}-\w{2,3})?\/editor\b/
 // @grant        none
 // @namespace https://greasyfork.org/users/166361
 // ==/UserScript==
 
 (function() {
-  
   function log(m) { console.log('%cWME HN2POI:%c ' + m, 'color: darkcyan; font-weight: bold', 'color: dimgray; font-weight: normal'); }
   function warn(m) { console.warn('WME HN2POI: ' + m); }
   function err(m) { console.error('WME HN2POI: ' + m); }
-  
+
   const d = window.document;
   const q = d.querySelector.bind(d);
   const qa = d.querySelectorAll.bind(d);
@@ -63,7 +62,7 @@
 
   function initUI() {
     const tabs = q('.nav-tabs'), tabContent = q('#user-info .tab-content');
-    
+
     if (!tabs || !tabContent) {
       log('Waze UI not ready...');
       setTimeout(initUI, 500);
@@ -75,18 +74,18 @@
       `<div><input type="checkbox" id="hn2poi-add-residential" /><label for="hn2poi-add-residential">${txt('addResidentialLabel')}</label></div>`,
       `<div><input type="checkbox" id="hn2poi-no-duplicates" /><label for="hn2poi-no-duplicates">${txt('noDuplicatesLabel')}</label></div>`,
     ].join('');
-    
+
     const tabPane = newEl('div', {id: 'sidepanel-hn2poi', className: 'tab-pane', innerHTML: tabPaneContent});
-    
+
     tabs.appendChild(newEl('li', {innerHTML: '<a href="#sidepanel-hn2poi" data-toggle="tab">HN2POI</a>'}));
     tabContent.appendChild(tabPane);
-    
+
     const s = localStorage['hn2poi'];
     settings = s ? JSON.parse(s) : { addResidential: false, noDuplicates: true };
 
     const addResidentialInput = q('#hn2poi-add-residential');
     const noDuplicatesInput = q('#hn2poi-no-duplicates');
-    
+
     addResidentialInput.checked = settings.addResidential;
     addResidentialInput.addEventListener('change', updateSettings);
     noDuplicatesInput.checked = settings.noDuplicates;
@@ -94,10 +93,11 @@
 
     log('UI initialized...');
   }
-  
+
   function init() {
     sm = W.selectionManager;
     sm.events.register("selectionchanged", null, onSelect);
+    W.editingMediator.on('change:editingHouseNumbers', onEditingHN);
 
     const scriptName = 'hn2poi';
 
@@ -108,7 +108,7 @@
     window.addEventListener("beforeunload", function() {
         SaveKeyboardShortcuts(scriptName);
     }, false);
-    
+
     initUI();
   }
 
@@ -117,25 +117,27 @@
     settings.noDuplicates = q('#hn2poi-no-duplicates').checked;
     localStorage['hn2poi'] = JSON.stringify(settings);
   }
-  
+
   function onSelect() {
     const fts = sm.getSelectedFeatures();
-    
+
     if (!fts || fts.length === 0 || fts[0].model.type !== "segment" || !fts.some(f => f.model.attributes.hasHNs)) return;
 
     const pane = newEl('div', {className: 'form-group'});
     const makePoiBtn = newEl('button', {className: 'waze-btn waze-btn-white action-button', style: 'display: inline-block', innerText: txt('makePoiButtonText')});
-    const delHNbtn = newEl('button', {className: 'waze-btn waze-btn-white action-button', style: 'display: inline-block', innerText: txt('delHNButtonText')});
-
     makePoiBtn.addEventListener('click', makePOI);
-    delHNbtn.addEventListener('click', delHN);
-    
     pane.appendChild(makePoiBtn);
-    pane.appendChild(delHNbtn);
-
     q('#edit-panel .tab-pane').insertBefore(pane, q('#edit-panel .tab-pane .more-actions'));
   }
-  
+
+  function onEditingHN() {
+    const delHNbtn = newEl('div', {className: 'toolbar-button', style: 'float: left', innerText: txt('delHNButtonText')});
+    delHNbtn.addEventListener('click', delHN);
+    setTimeout(() => {
+      $('#edit-buttons').find('.add-house-number').after(delHNbtn);
+    }, 500)
+  }
+
   function hasDuplicates(poi, addr) {
     const venues = W.model.venues.objects;
     for (let k in venues)
@@ -154,100 +156,136 @@
       }
     return false;
   }
-  
+
   function makePOI() {
+    selectEntireStreet();
+
     const fts = sm.getSelectedFeatures();
-    
     if (!fts || fts.length === 0 || fts[0].model.type !== "segment" || !fts.some(f => f.model.attributes.hasHNs)) return;
 
-    const Landmark = require('Waze/Feature/Vector/Landmark');
-    const AddLandmark = require('Waze/Action/AddLandmark');
-    const HouseNumberAction = require('Waze/Action/HouseNumber');
-    const UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
-    const segs = [];
-
     // collect all segments ids with HN
+    const segs = [];
     fts.forEach(f => {
       if (!f.model.attributes.hasHNs)
         return;
       segs.push(f.model.attributes.id);
     });
-    
-    // NOTE:
-    // Get HNs info only for array of segments, otherwise Waze api
-    // for some reason doesn't responds properly
-    W.model.houseNumbers.getAsync(segs).then(i => {
-      i.forEach(hn => {
-        hn.numbers.forEach(num => {
-          
-          let addPOI = true;
 
-          const poi = new Landmark();
-          poi.geometry = num.geometry.clone();
-          poi.attributes.name = num.number;
-          poi.attributes.houseNumber = num.number;
-          poi.attributes.categories.push('OTHER');
+    fetch(`https://www.waze.com/row-Descartes/app/HouseNumbers?ids=${segs.join(',')}`)
+    .then(response => response.json())
+    .then(json => {
+      json.segmentHouseNumbers.objects.forEach(makePOIForHN);
+    });
+  }
 
-          const addr = W.model.segments.getObjectById(hn.id).getAddress().attributes;
+  function makePOIForHN(hn) {
+    const Landmark = require('Waze/Feature/Vector/Landmark');
+    const AddLandmark = require('Waze/Action/AddLandmark');
+    const UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
 
-          const newAddr = {
-            countryID: addr.country.id,
-            stateID: addr.state.id,
-            cityName: addr.city.attributes.name,
-            emptyCity: !1,
-            streetName: addr.street.name,
-            streetEmpty: !1,
-          };
+    let addPOI = true;
 
-          if (settings.noDuplicates && hasDuplicates(poi, addr))
-            addPOI = false;
-          
-          if (addPOI) {
-            W.model.actionManager.add(new AddLandmark(poi));
-            W.model.actionManager.add(new UpdateFeatureAddress(poi, newAddr));
-          }
-          
-          if (!settings.addResidential)
-            return; // no residential required
-          
-          const res = new Landmark();
-          res.geometry = num.geometry.clone();
-          res.geometry.x += 10;
-          res.attributes.residential = true;
-          res.attributes.houseNumber = num.number;
+    let [x, y] = hn.geometry.coordinates;
+    let poiGeometry = OpenLayers.Projection.transform(
+      new OpenLayers.Geometry.Point(x, y),
+      'EPSG:4326',
+      'EPSG:900913'
+    );
 
-          if (settings.noDuplicates && hasDuplicates(res, addr))
-            return;          
-          
-          W.model.actionManager.add(new AddLandmark(res));
-          W.model.actionManager.add(new UpdateFeatureAddress(res, newAddr));
+    const poi = new Landmark();
+    poi.geometry = poiGeometry;
+    poi.attributes.name = hn.number;
+    poi.attributes.houseNumber = hn.number;
+    poi.attributes.categories.push('OTHER');
+    poi.attributes.lockRank = getPointLockRank();
+    addEntryPoint(poi);
 
-        });
+    const addr = W.model.segments.getObjectById(hn.segID).getAddress().attributes;
+
+    const newAddr = {
+      countryID: addr.country.id,
+      stateID: addr.state.id,
+      cityName: addr.city.attributes.name,
+      emptyCity: !1,
+      streetName: addr.street.name,
+      streetEmpty: !1,
+    };
+
+    if (settings.noDuplicates && hasDuplicates(poi, addr))
+      addPOI = false;
+
+    if (addPOI) {
+      W.model.actionManager.add(new AddLandmark(poi));
+      W.model.actionManager.add(new UpdateFeatureAddress(poi, newAddr));
+    }
+
+    if (!settings.addResidential)
+      return; // no residential required
+
+    const res = new Landmark();
+    res.geometry = poiGeometry.clone();
+    res.geometry.x += 5;
+    res.attributes.residential = true;
+    res.attributes.houseNumber = hn.number;
+    res.attributes.lockRank = getPointLockRank();
+    addEntryPoint(res);
+
+    if (settings.noDuplicates && hasDuplicates(res, addr))
+      return;
+
+    W.model.actionManager.add(new AddLandmark(res));
+    W.model.actionManager.add(new UpdateFeatureAddress(res, newAddr));
+  }
+
+  function delHN() {
+    selectEntireStreet();
+
+    const fts = sm.getSelectedFeatures();
+
+    if (!fts || fts.length === 0 || fts[0].model.type !== "segment" || !fts.some(f => f.model.attributes.hasHNs)) return;
+
+    const DeleteHouseNumberAction = require('Waze/Actions/DeleteHouseNumber');
+    const segs = [];
+    const houseNumbers = W.model.segmentHouseNumbers.getObjectArray();
+
+    fts.forEach(f => {
+      if (!f.model.attributes.hasHNs)
+        return;
+      segs.push(f.model.attributes.id);
+    });
+
+    segs.forEach(segID => {
+      houseNumbers.forEach(hn => {
+        if (hn.getSegmentId() == segID) {
+          W.model.actionManager.add(new DeleteHouseNumberAction(hn));
+        }
       });
     });
   }
 
-  function delHN() {
-    const fts = sm.getSelectedFeatures();
-    
-    if (!fts || fts.length === 0 || fts[0].model.type !== "segment" || !fts.some(f => f.model.attributes.hasHNs)) return;
+  function addEntryPoint(newPoint) {
+    entryPoint = new NavigationPoint(newPoint.geometry.clone());
+    newPoint.attributes.entryExitPoints.push(entryPoint);
+  }
 
-    const HouseNumberAction = require('Waze/Action/HouseNumber');
-    const segs = [];
+  function getPointLockRank() {
+    const userRank = W.loginManager.user.rank;
+    if (userRank >= 1) {
+        return 1;
+    } else {
+        return 0;
+    }
+  }
 
-    fts.forEach(f => {
-      if (!f.model.attributes.hasHNs)
-        return;
-      segs.push(f.model.attributes.id);
-    });
+  function selectEntireStreet() {
+    let selectedFeature = sm.getSelectedFeatures()[0];
+    if (selectedFeature) {
+      let featureStreetId = selectedFeature.model.attributes.primaryStreetID;
+      let sameStreetSegments = W.model.segments.getByAttributes({ primaryStreetID: featureStreetId });
 
-    W.model.houseNumbers.getAsync(segs).then(i => {
-      i.forEach(hn =>
-        hn.numbers.forEach(num =>
-          W.model.actionManager.add(new HouseNumberAction.DeleteHouseNumber(num.parent, num))
-        )
-      );
-    });
+      W.selectionManager.unselectAll();
+      W.selectionManager.setSelectedModels(sameStreetSegments);
+    }
   }
 
   //setup keyboard shortcut's header and add a keyboard shortcuts
@@ -357,7 +395,8 @@ window.addEventListener("beforeunload", function() {
 //saved shortcuts to console
 //JSON.parse(localStorage['WMEAwesomeKBS']);
 
-*/  
+*/
 
+  var _createClass=function(){function a(b,c){for(var f,d=0;d<c.length;d++)f=c[d],f.enumerable=f.enumerable||!1,f.configurable=!0,"value"in f&&(f.writable=!0),Object.defineProperty(b,f.key,f)}return function(b,c,d){return c&&a(b.prototype,c),d&&a(b,d),b}}();function _classCallCheck(a,b){if(!(a instanceof b))throw new TypeError("Cannot call a class as a function")}var NavigationPoint=function(){function a(b){_classCallCheck(this,a),this._point=b.clone(),this._entry=!0,this._exit=!0,this._isPrimary=!0,this._name=""}return _createClass(a,[{key:"with",value:function _with(){var b=0<arguments.length&&void 0!==arguments[0]?arguments[0]:{};return null==b.point&&(b.point=this.toJSON().point),new this.constructor((this.toJSON().point,b.point))}},{key:"getPoint",value:function getPoint(){return this._point.clone()}},{key:"getEntry",value:function getEntry(){return this._entry}},{key:"getExit",value:function getExit(){return this._exit}},{key:"getName",value:function getName(){return this._name}},{key:"isPrimary",value:function isPrimary(){return this._isPrimary}},{key:"toJSON",value:function toJSON(){return{point:this._point,entry:this._entry,exit:this._exit,primary:this._isPrimary,name:this._name}}},{key:"clone",value:function clone(){return this.with()}}]),a}();
   wait();
 })();
