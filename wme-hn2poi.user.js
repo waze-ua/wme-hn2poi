@@ -1,10 +1,11 @@
 // ==UserScript==
-// @name         WME HN2POI (Fork by woolenkitten)
-// @version      2018.08.09.001
+// @name         WME HN2POI
+// @version      2020.02.05.01
 // @description  Converts HouseNumbers to POI
-// @author       turbopirate (Fork by woolenkitten)
+// @author       turbopirate, Andrei Pavlenko
 // @include      /^https:\/\/(www|beta)\.waze\.com(\/\w{2,3}|\/\w{2,3}-\w{2,3}|\/\w{2,3}-\w{2,3}-\w{2,3})?\/editor\b/
 // @grant        none
+// @namespace https://greasyfork.org/users/166361
 // ==/UserScript==
 
 (function() {
