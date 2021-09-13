@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         WME HN2POI
-// @version      2020.02.05.01
+// @version      2021.09.13.01
 // @description  Converts HouseNumbers to POI
 // @author       turbopirate, Andrei Pavlenko
 // @include      /^https:\/\/(www|beta)\.waze\.com(\/\w{2,3}|\/\w{2,3}-\w{2,3}|\/\w{2,3}-\w{2,3}-\w{2,3})?\/editor\b/
@@ -130,11 +130,12 @@
     q('#edit-panel .tab-pane').insertBefore(pane, q('#edit-panel .tab-pane .more-actions'));
   }
 
+  // Executes when hn edit mode enabled
   function onEditingHN() {
     const delHNbtn = newEl('div', {className: 'toolbar-button', style: 'float: left', innerText: txt('delHNButtonText')});
     delHNbtn.addEventListener('click', delHN);
     setTimeout(() => {
-      $('#edit-buttons').find('.add-house-number').after(delHNbtn);
+      $('#app-head #primary-toolbar > div').append(delHNbtn);
     }, 500)
   }
 
