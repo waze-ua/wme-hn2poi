@@ -5,6 +5,8 @@
 // @author       turbopirate, Andrei Pavlenko
 // @include      /^https:\/\/(www|beta)\.waze\.com(\/\w{2,3}|\/\w{2,3}-\w{2,3}|\/\w{2,3}-\w{2,3}-\w{2,3})?\/editor\b/
 // @grant        none
+// @updateURL       https://github.com/waze-ua/wme-hn2poi/raw/master/wme-hn2poi.user.js
+// @downloadURL     https://github.com/waze-ua/wme-hn2poi/raw/master/wme-hn2poi.user.js
 // @namespace https://greasyfork.org/users/166361
 // ==/UserScript==
 
