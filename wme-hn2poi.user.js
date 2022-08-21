@@ -127,7 +127,7 @@
     const makePoiBtn = newEl('button', {className: 'waze-btn waze-btn-white action-button', style: 'display: inline-block', innerText: txt('makePoiButtonText')});
     makePoiBtn.addEventListener('click', makePOI);
     pane.appendChild(makePoiBtn);
-    q('#edit-panel .tab-pane').insertBefore(pane, q('#edit-panel .tab-pane .more-actions'));
+    q('#segment-edit-general .form-group.more-actions').appendChild(pane);
   }
 
   // Executes when hn edit mode enabled
