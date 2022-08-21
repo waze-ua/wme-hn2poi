@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         WME HN2POI
-// @version      2021.09.13.01
+// @version      2022.08.21.01
 // @description  Converts HouseNumbers to POI
 // @author       turbopirate, Andrei Pavlenko
 // @include      /^https:\/\/(www|beta)\.waze\.com(\/\w{2,3}|\/\w{2,3}-\w{2,3}|\/\w{2,3}-\w{2,3}-\w{2,3})?\/editor\b/
