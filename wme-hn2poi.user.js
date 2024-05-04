@@ -123,7 +123,7 @@
   function onSelect() {
     const fts = sm.getSelectedFeatures();
 
-    if (!fts || fts.length === 0 || fts[0].model.type !== "segment" || !fts.some(f => f.model.attributes.hasHNs)) return;
+    if (!fts || fts.length === 0 || fts[0].featureType !== "segment" || !fts.some(f => f._wmeObject.attributes.hasHNs)) return;
 
     const pane = newEl('div', {className: 'form-group'});
     const makePoiBtn = newEl('button', {className: 'waze-btn waze-btn-white action-button', style: 'display: inline-block', innerText: txt('makePoiButtonText')});
